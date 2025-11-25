@@ -145,6 +145,24 @@ body {
 .loc-name { font-size: 13px; font-weight: 700; color: var(--text-sub); margin-bottom: 4px; }
 .loc-val { font-size: 24px; font-weight: 800; color: var(--theme-color); }
 
+/* Parking Assign Card */
+.parking-input-group {
+  background: var(--surface); border-radius: var(--radius-lg);
+  padding: 16px; margin-bottom: 16px;
+  box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.form-label { font-size: 14px; font-weight: 600; color: var(--text-sub); margin-left: 2px; }
+.form-select {
+  width: 100%; padding: 12px; border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: #fff;
+  font-size: 16px; color: var(--text-main); font-weight: 500;
+  appearance: none; /* Remove default arrow */
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231f2937%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 12px auto;
+}
+.form-select:focus { outline: none; border-color: var(--theme-color); }
+
 /* =========== Login View =========== */
 #login-view {
   display: none; position: fixed; inset: 0;
@@ -202,9 +220,9 @@ body {
 }
 
 .btn {
-  border: none; border-radius: 50px; padding: 8px 20px;
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  transition: 0.2s; white-space: nowrap;
+  border: none; border-radius: 50px; padding: 10px 20px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: 0.2s; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;
 }
 .btn-primary { background: var(--theme-color); color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 .btn-primary:active { transform: translateY(1px); filter: brightness(0.9); }
@@ -478,6 +496,35 @@ async function doUpdate(cfg, rowIdx, colIdx, value) {
   }
 }
 
+function submitParking(cfg, colIdx) {
+  const elCar = document.getElementById('selParkCar');
+  const elLoc = document.getElementById('selParkLoc');
+  
+  if(!elCar || !elLoc) return;
+  const carRow = elCar.value;
+  const locVal = elLoc.value;
+  
+  if(!locVal) { showToast('請選擇位置', true); return; }
+  if(!carRow) { showToast('請選擇車輛', true); return; }
+  
+  // colIdx is 0-based index in header, API expects 1-based index
+  // carRow is already 1-based row index
+  doUpdate(cfg, parseInt(carRow), colIdx + 1, locVal);
+}
+
+// Helper to update labels if needed when location changes
+function onLocChange() {
+    const loc = document.getElementById('selParkLoc').value;
+    const label = document.getElementById('lblAddCar');
+    if(label && loc) {
+        label.textContent = `2. 新增車輛至 ${loc}`;
+        label.style.color = 'var(--theme-color)';
+    } else if(label) {
+        label.textContent = `2. 新增車輛`;
+        label.style.color = 'var(--text-sub)';
+    }
+}
+
 /* ============ UI RENDERING ============ */
 
 // 1. 初始化標籤 (Tabs)
@@ -542,9 +589,70 @@ function renderDashboard(data) {
     inbound.forEach(step => container.appendChild(createStatCard(step, getCounts(step))));
   }
 
-  // Render Section: 停車位置 (Scroll)
+  // Render Section: 停車位置 (Scroll + Assign)
   if (stopIdx >= 0) {
     container.innerHTML += `<div class="section-title">目前車輛位置</div>`;
+    
+    // -----------------------------------------------------------------
+    // NEW: Assign Parking Location Block (Location First -> Car)
+    const canWrite = currentUser.permission === '全功能';
+    if (canWrite) {
+        const prevStep = stopIdx > 0 ? cfg.steps[stopIdx - 1] : null;
+        const prevCol = prevStep ? header.indexOf(prevStep) : -1;
+        const stopCol = header.indexOf('車暫停位置');
+        
+        // Filter cars: Stop is empty AND Prev step is done
+        const eligibleCars = rows.filter(r => {
+            const val = stopCol >= 0 ? r.data[stopCol] : '';
+            const isStopEmpty = !val || val === '—' || val.trim() === '';
+            
+            const prevVal = prevCol >= 0 ? r.data[prevCol] : '';
+            const isPrevDone = !prevStep || (prevVal && prevVal !== '—');
+            
+            return isStopEmpty && isPrevDone;
+        });
+        
+        if (eligibleCars.length > 0) {
+            const parkingDiv = document.createElement('div');
+            parkingDiv.className = 'parking-input-group';
+            
+            // 1. Locations
+            let locOptions = '<option value="" disabled selected>請選擇位置...</option>';
+            STOP_OPTIONS.forEach(opt => locOptions += `<option value="${opt}">${opt}</option>`);
+
+            // 2. Cars
+            let carOptions = '<option value="" disabled selected>請選擇車輛...</option>';
+            eligibleCars.forEach(car => {
+               const area = car.data[data.areaIdx] || '';
+               const carNo = car.data[data.carIdx] || '';
+               const label = `${area} ${carNo}`;
+               carOptions += `<option value="${car.rowIndex}">${label}</option>`;
+            });
+    
+            parkingDiv.innerHTML = `
+              <div class="step-header">車暫停位置登錄</div>
+              
+              <div class="form-label" style="margin-bottom:4px">1. 選擇位置</div>
+              <select id="selParkLoc" class="form-select" style="margin-bottom:12px">${locOptions}</select>
+              
+              <div id="lblAddCar" class="form-label" style="margin-bottom:4px">2. 新增車輛</div>
+              <select id="selParkCar" class="form-select" style="margin-bottom:16px">${carOptions}</select>
+              
+              <button class="btn btn-primary" id="btnParkSubmit" style="width:100%">確定</button>
+            `;
+            container.appendChild(parkingDiv);
+            
+            // Bind Events
+            setTimeout(() => {
+                const b = document.getElementById('btnParkSubmit');
+                const sel = document.getElementById('selParkLoc');
+                if(b) b.onclick = () => submitParking(cfg, stopCol);
+                if(sel) sel.onchange = onLocChange;
+            }, 0);
+        }
+    }
+    // -----------------------------------------------------------------
+
     const scrollBox = document.createElement('div');
     scrollBox.className = 'loc-scroll';
     
