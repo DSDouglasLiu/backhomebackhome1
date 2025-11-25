@@ -556,7 +556,6 @@ function renderDashboard(data) {
   const inbound = stopIdx >= 0 ? cfg.steps.slice(0, stopIdx) : cfg.steps;
   const outbound = stopIdx >= 0 ? cfg.steps.slice(stopIdx + 1) : [];
 
-  // Robust Counting using normalize
   const getCounts = (step) => {
     const col = header.indexOf(step);
     let done = 0, todo = 0;
@@ -638,7 +637,6 @@ function renderDashboard(data) {
     
     rows.forEach(r => {
       const val = normalize(r.data[col]);
-      // 使用 normalize 進行比對，確保計數與清單一致
       const match = STOP_OPTIONS.find(opt => normalize(opt) === val);
       if(match) counts[match]++;
     });
@@ -646,8 +644,9 @@ function renderDashboard(data) {
     STOP_OPTIONS.forEach(opt => {
       const card = document.createElement('div');
       card.className = 'loc-card';
+      // 改為 setAttribute onclick 確保全域函式能被正確觸發
+      card.setAttribute('onclick', `openList('${currentSheetKey}', '車暫停位置', 'loc', '${opt}')`);
       card.innerHTML = `<div class="loc-name">${opt}</div><div class="loc-val">${counts[opt]}</div>`;
-      card.onclick = () => openList(cfg.key, '車暫停位置', 'loc', opt);
       scrollBox.appendChild(card);
     });
     container.appendChild(scrollBox);
@@ -681,14 +680,14 @@ function createStatCard(step, counts) {
 
 // 修正後的清單開啟邏輯
 function openList(sheetKey, step, type, locVal) {
-  const data = SHEET_DATA[sheetKey];
-  if(!data) return;
+  // 防禦性程式碼：如果資料還沒載入，先嘗試從 SHEET_DATA 讀取，若無則返回
+  let data = SHEET_DATA[sheetKey];
+  if (!data) return;
   
   const { cfg, header, rows } = data;
   const colIdx = header.indexOf(step);
   const list = [];
   
-  // 使用 normalize 進行比對
   const targetLoc = normalize(locVal);
 
   rows.forEach(item => {
@@ -697,7 +696,6 @@ function openList(sheetKey, step, type, locVal) {
     const isDone = (valStr && valStr !== '—');
     
     if (type === 'loc') {
-      // 這裡使用 normalize 後的值進行比對
       if (valNorm === targetLoc) list.push(item);
     } else if (type === 'done' && isDone) {
       list.push(item);
