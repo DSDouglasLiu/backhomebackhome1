@@ -206,12 +206,11 @@ body {
   padding: 16px 0; border-bottom: 1px dashed var(--border);
 }
 
-/* 修正：清單項目佈局，讓兩者字體一樣大且並排 */
 .item-info { 
   display: flex; 
   align-items: center; 
   gap: 12px; 
-  flex: 1; /* 讓文字區域佔據剩餘空間，推擠按鈕到右邊 */
+  flex: 1;
 }
 .item-text { 
   font-size: 18px; 
@@ -487,7 +486,6 @@ async function doUpdate(cfg, rowIdx, colIdx, value) {
         writes: [{ row: rowIdx, col: colIdx, value: value }]
       })
     });
-    // Option B: 打卡後，關閉清單，回到儀表板 (並自動更新)
     closeSheet();
     await loadDashboard(true); 
   } catch(e) {
@@ -507,8 +505,6 @@ function submitParking(cfg, colIdx) {
   if(!locVal) { showToast('請選擇位置', true); return; }
   if(!carRow) { showToast('請選擇車輛', true); return; }
   
-  // colIdx is 0-based index in header, API expects 1-based index
-  // carRow is already 1-based row index
   doUpdate(cfg, parseInt(carRow), colIdx + 1, locVal);
 }
 
@@ -517,17 +513,16 @@ function onLocChange() {
     const loc = document.getElementById('selParkLoc').value;
     const label = document.getElementById('lblAddCar');
     if(label && loc) {
-        label.textContent = `2. 新增車輛至 ${loc}`;
+        label.textContent = `新增車輛至 ${loc}`; // Removed number prefix
         label.style.color = 'var(--theme-color)';
     } else if(label) {
-        label.textContent = `2. 新增車輛`;
+        label.textContent = `新增車輛`; // Removed number prefix
         label.style.color = 'var(--text-sub)';
     }
 }
 
 /* ============ UI RENDERING ============ */
 
-// 1. 初始化標籤 (Tabs)
 function initTabs() {
   const box = document.getElementById('tabsContainer');
   box.innerHTML = '';
@@ -543,21 +538,16 @@ function initTabs() {
 
 function switchTab(key) {
   currentSheetKey = key;
-  
-  // 變色邏輯
   const cfg = SHEET_CONFIGS.find(s => s.key === key);
   document.documentElement.style.setProperty('--theme-color', cfg.color);
   
-  // UI Active State
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.key === key);
   });
 
-  // 載入資料
   loadDashboard(true);
 }
 
-// 2. 渲染儀表板
 function renderDashboard(data) {
   const container = document.getElementById('dashboardContent');
   container.innerHTML = '';
@@ -572,7 +562,6 @@ function renderDashboard(data) {
   const inbound = stopIdx >= 0 ? cfg.steps.slice(0, stopIdx) : cfg.steps;
   const outbound = stopIdx >= 0 ? cfg.steps.slice(stopIdx + 1) : [];
 
-  // Helper to count stats
   const getCounts = (step) => {
     const col = header.indexOf(step);
     let done = 0, todo = 0;
@@ -591,17 +580,15 @@ function renderDashboard(data) {
 
   // Render Section: 停車位置 (Scroll + Assign)
   if (stopIdx >= 0) {
-    container.innerHTML += `<div class="section-title">目前車輛位置</div>`;
+    // 移除「目前車輛位置」標題
     
-    // -----------------------------------------------------------------
-    // NEW: Assign Parking Location Block (Location First -> Car)
+    // NEW: Assign Parking Location Block
     const canWrite = currentUser.permission === '全功能';
     if (canWrite) {
         const prevStep = stopIdx > 0 ? cfg.steps[stopIdx - 1] : null;
         const prevCol = prevStep ? header.indexOf(prevStep) : -1;
         const stopCol = header.indexOf('車暫停位置');
         
-        // Filter cars: Stop is empty AND Prev step is done
         const eligibleCars = rows.filter(r => {
             const val = stopCol >= 0 ? r.data[stopCol] : '';
             const isStopEmpty = !val || val === '—' || val.trim() === '';
@@ -632,17 +619,16 @@ function renderDashboard(data) {
             parkingDiv.innerHTML = `
               <div class="step-header">車暫停位置登錄</div>
               
-              <div class="form-label" style="margin-bottom:4px">1. 選擇位置</div>
+              <div class="form-label" style="margin-bottom:4px">選擇位置</div>
               <select id="selParkLoc" class="form-select" style="margin-bottom:12px">${locOptions}</select>
               
-              <div id="lblAddCar" class="form-label" style="margin-bottom:4px">2. 新增車輛</div>
+              <div id="lblAddCar" class="form-label" style="margin-bottom:4px">新增車輛</div>
               <select id="selParkCar" class="form-select" style="margin-bottom:16px">${carOptions}</select>
               
               <button class="btn btn-primary" id="btnParkSubmit" style="width:100%">確定</button>
             `;
             container.appendChild(parkingDiv);
             
-            // Bind Events
             setTimeout(() => {
                 const b = document.getElementById('btnParkSubmit');
                 const sel = document.getElementById('selParkLoc');
@@ -651,7 +637,6 @@ function renderDashboard(data) {
             }, 0);
         }
     }
-    // -----------------------------------------------------------------
 
     const scrollBox = document.createElement('div');
     scrollBox.className = 'loc-scroll';
@@ -709,12 +694,15 @@ function openList(sheetKey, step, type, locVal) {
   const colIdx = header.indexOf(step);
   const list = [];
   
+  // 修正：增加 .trim() 避免因空白導致比對失敗
+  const targetLoc = locVal ? String(locVal).trim() : '';
+
   rows.forEach(item => {
-    const val = colIdx >= 0 ? item.data[colIdx] : '';
+    const val = colIdx >= 0 ? String(item.data[colIdx]||'').trim() : '';
     const isDone = (val && val !== '—');
     
     if (type === 'loc') {
-      if (val === locVal) list.push(item);
+      if (val === targetLoc) list.push(item);
     } else if (type === 'done' && isDone) {
       list.push(item);
     } else if (type === 'todo' && !isDone) {
@@ -730,7 +718,7 @@ function openList(sheetKey, step, type, locVal) {
   body.innerHTML = '';
   
   if(list.length === 0) {
-    body.innerHTML = '<div style="text-align:center;padding:20px;color:#999">無資料</div>';
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:#999">目前無資料</div>';
   } else {
     const canWrite = currentUser.permission === '全功能';
     
@@ -741,7 +729,6 @@ function openList(sheetKey, step, type, locVal) {
       const el = document.createElement('div');
       el.className = 'list-item';
       
-      // 修正：將兩個資訊用相同樣式並排
       let leftHtml = `
         <div class="item-info">
           <div class="item-text">${area}</div>
@@ -749,14 +736,11 @@ function openList(sheetKey, step, type, locVal) {
         </div>
       `;
       
-      // Right Actions
       const btnDiv = document.createElement('div');
       btnDiv.style.display = 'flex';
       btnDiv.style.gap = '8px';
 
-      // Punch Button (Only for TODO and NOT '車暫停位置')
       if (type === 'todo' && step !== '車暫停位置' && canWrite) {
-        // Logic check: previous step done?
         const stepIdx = cfg.steps.indexOf(step);
         const prevStep = stepIdx > 0 ? cfg.steps[stepIdx-1] : null;
         const prevCol = prevStep ? header.indexOf(prevStep) : -1;
@@ -773,7 +757,6 @@ function openList(sheetKey, step, type, locVal) {
         btnDiv.appendChild(btn);
       }
 
-      // Detail Button
       const btnDetail = document.createElement('button');
       btnDetail.className = 'btn btn-outline';
       btnDetail.textContent = '詳細';
@@ -795,9 +778,7 @@ function closeSheet() {
   document.getElementById('bottomSheet').classList.remove('show');
 }
 
-// 4. Detail Modal
 function showDetail(cfg, row, header) {
-  // Replace current sheet content with detail
   const body = document.getElementById('sheetBody');
   document.getElementById('sheetTitle').textContent = `詳細資料: ${row[header.indexOf('車號')] || ''}`;
   
@@ -808,7 +789,6 @@ function showDetail(cfg, row, header) {
   });
   html += `</table>`;
   
-  // Add back button
   const backBtn = document.createElement('div');
   backBtn.style.padding = '16px 0';
   backBtn.innerHTML = `<button class="btn btn-outline" style="width:100%" onclick="closeSheet()">關閉</button>`;
