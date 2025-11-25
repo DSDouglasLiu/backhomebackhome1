@@ -24,7 +24,7 @@
   
   /* 顏色定義 */
   --c-teal: #059669;
-  --c-orange: #d97706;
+  --c-orange: #f97316; /* 調整為更亮的橘色 */
   --c-purple: #7c3aed;
   --c-pink: #db2777;
   
@@ -112,6 +112,16 @@ body {
   background: var(--surface); border-radius: var(--radius-lg);
   padding: 16px; margin-bottom: 12px;
   box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+/* NEW: Secondary Card Style (非主要操作) */
+.stat-card.secondary {
+  border: 2px solid var(--c-orange);
+  background-color: #fff7ed; /* 淺橘色背景 */
+}
+.stat-card.secondary .step-header {
+  color: #c2410c; /* 深橘色文字 */
 }
 
 .step-header { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--text-main); }
@@ -123,6 +133,12 @@ body {
   cursor: pointer; border: 1px solid transparent; transition: 0.2s;
 }
 .stat-box:active { transform: scale(0.98); background: #e2e8f0; }
+
+/* 讓橘色卡片裡的數字方塊背景也稍微調整，避免全白太突兀 */
+.stat-card.secondary .stat-box {
+  background: #ffffff; 
+  border: 1px solid rgba(249, 115, 22, 0.2);
+}
 
 .stat-num { font-size: 28px; font-weight: 800; line-height: 1.2; }
 .stat-label { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
@@ -308,7 +324,9 @@ const SHEET_CONFIGS = [
     steps:[
       '車長通知行李到齊','Call 車上行李','車已上遊覽車平台','車前往排車隊','車暫停位置',
       '退場人員已到齊','已 Call 車上遊覽車平台','人已前往平台','車第二次上遊覽車平台','車已離開遊覽車平台'
-    ]
+    ],
+    // 特別標註的步驟 (非主要操作)
+    secondarySteps: ['退場人員已到齊','人已前往平台']
   },
   { 
     key:'地區專車退場（禪堂平台）', 
@@ -317,7 +335,9 @@ const SHEET_CONFIGS = [
     steps:[
       '車長通知行李到齊','Call 車上行李','車已上遊覽車平台','車前往排車隊','車暫停位置',
       '人已前往禪堂平台','車已離開禪堂平台'
-    ]
+    ],
+    // 特別標註的步驟 (非主要操作)
+    secondarySteps: ['人已前往禪堂平台','車已離開禪堂平台']
   },
   { 
     key:'水陸專車退場', 
@@ -326,7 +346,9 @@ const SHEET_CONFIGS = [
     steps:[
       '已 Call 車排車隊','已排好車隊','車暫停位置',
       '退場人員已到齊','已 Call 車上遊覽車平台','車已上遊覽車平台','人已前往平台','車已離開遊覽車平台'
-    ]
+    ],
+    // 特別標註的步驟 (非主要操作)
+    secondarySteps: ['退場人員已到齊','人已前往平台']
   },
   { 
     key:'288法青退場', 
@@ -334,7 +356,8 @@ const SHEET_CONFIGS = [
     color: '#db2777',
     steps:[
       '退場人員已到齊','車已經上遊覽車平台','車已經離開遊覽車平台'
-    ]
+    ],
+    secondarySteps: []
   }
 ];
 
@@ -349,7 +372,6 @@ let refreshTimer = null;
 let SHEET_DATA = {}; 
 
 /* ============ UTILS (Helper) ============ */
-// 移除空白與特殊字元，確保比對精準
 function normalize(str) {
   return String(str || '').replace(/[\s\uFEFF\xA0]+/g, '');
 }
@@ -569,13 +591,14 @@ function renderDashboard(data) {
   // 1. 進場
   if (inbound.length) {
     container.innerHTML += `<div class="section-title">進場程序</div>`;
-    inbound.forEach(step => container.appendChild(createStatCard(step, getCounts(step))));
+    inbound.forEach(step => {
+      const isSec = cfg.secondarySteps && cfg.secondarySteps.includes(step);
+      container.appendChild(createStatCard(step, getCounts(step), isSec));
+    });
   }
 
   // 2. 停車位置 (Assign + Scroll)
   if (stopIdx >= 0) {
-    // 移除「目前車輛位置」標題
-
     // Assign Block
     const canWrite = currentUser.permission === '全功能';
     if (canWrite) {
@@ -627,7 +650,7 @@ function renderDashboard(data) {
         }
     }
 
-    // Scroll Cards with Robust Counting
+    // Scroll Cards
     const scrollBox = document.createElement('div');
     scrollBox.className = 'loc-scroll';
     
@@ -644,7 +667,6 @@ function renderDashboard(data) {
     STOP_OPTIONS.forEach(opt => {
       const card = document.createElement('div');
       card.className = 'loc-card';
-      // 改為 setAttribute onclick 確保全域函式能被正確觸發
       card.setAttribute('onclick', `openList('${currentSheetKey}', '車暫停位置', 'loc', '${opt}')`);
       card.innerHTML = `<div class="loc-name">${opt}</div><div class="loc-val">${counts[opt]}</div>`;
       scrollBox.appendChild(card);
@@ -655,13 +677,16 @@ function renderDashboard(data) {
   // 3. 退場
   if (outbound.length) {
     container.innerHTML += `<div class="section-title" style="margin-top:24px">退場程序</div>`;
-    outbound.forEach(step => container.appendChild(createStatCard(step, getCounts(step))));
+    outbound.forEach(step => {
+      const isSec = cfg.secondarySteps && cfg.secondarySteps.includes(step);
+      container.appendChild(createStatCard(step, getCounts(step), isSec));
+    });
   }
 }
 
-function createStatCard(step, counts) {
+function createStatCard(step, counts, isSecondary) {
   const div = document.createElement('div');
-  div.className = 'stat-card';
+  div.className = isSecondary ? 'stat-card secondary' : 'stat-card';
   div.innerHTML = `
     <div class="step-header">${step}</div>
     <div class="stat-row">
@@ -680,7 +705,6 @@ function createStatCard(step, counts) {
 
 // 修正後的清單開啟邏輯
 function openList(sheetKey, step, type, locVal) {
-  // 防禦性程式碼：如果資料還沒載入，先嘗試從 SHEET_DATA 讀取，若無則返回
   let data = SHEET_DATA[sheetKey];
   if (!data) return;
   
