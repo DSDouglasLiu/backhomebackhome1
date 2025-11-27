@@ -266,17 +266,37 @@ function initGoogleBtn() {
 
 async function verifyToken(token) {
   try {
-    const r = await fetch(API_BASE + '?action=verify', { method: 'POST', body: JSON.stringify({ idToken: token }) });
-    const j = await r.json();
+    const response = await fetch(API_BASE + '?action=verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'  // 這行！！
+      },
+      body: JSON.stringify({ idToken: token })
+    });
+
+    const text = await response.text();
+    let j;
+    try {
+      j = JSON.parse(text);
+    } catch(e) {
+      console.error('後端回傳非 JSON:', text);
+      throw new Error('伺服器回應異常');
+    }
+
     if (j.error) throw new Error(j.error);
+
     currentUser = j;
     document.getElementById('login-view').classList.remove('show');
     document.getElementById('app-view').style.display = 'block';
+
     initTabs();
     switchTab(currentSheetKey);
     startAutoRefresh();
-  } catch(e) {
-    console.error(e);
+
+    showToast('歡迎回來，' + (j.name || '使用者'));
+  } catch (err) {
+    console.error('驗證失敗:', err);
+    showToast('登入失敗，請再試一次', true);
     logout();
   } finally {
     hideLoading();
