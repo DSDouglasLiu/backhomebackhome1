@@ -476,7 +476,7 @@ function createStatCard(step, counts, isSecondary) {
   return div;
 }
 
-function openList(sheetKey, step, type, locVal = '') {
+function openList(sheetKey, step, type, locVal = '') {function openList(sheetKey, step, type, locVal = '') {
   const data = SHEET_DATA[sheetKey];
   if (!data) return;
 
@@ -535,7 +535,6 @@ function openList(sheetKey, step, type, locVal = '') {
       const btnDetail = document.createElement('button');
       btnDetail.className = 'btn btn-outline';
       btnDetail.textContent = '詳細';
-      ';
       btnDetail.onclick = () => showDetail(cfg, r.data, header);
       btns.appendChild(btnDetail);
 
