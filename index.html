@@ -79,7 +79,7 @@ body{margin:0;padding:60px 0 40px;background:var(--bg-body);color:var(--text-mai
 <div id="login-view" class="show">
   <div class="login-title">車流人流退場情報</div>
   <div class="login-sub">請登入以瀏覽看板</div>
-  <div id="signin-btn"></div>
+  <div id="signin-btn" style="display:flex;justify-content:center;margin-top:20px;"></div>
 </div>
 
 <div id="app-view" style="display:none;">
@@ -142,17 +142,39 @@ window.onload = function(){
   document.getElementById('sheetClose').onclick=closeSheet;
 };
 
-function initGoogleBtn(){
+function initGoogleBtn() {
+  // 先確保容器存在
+  const container = document.getElementById('signin-btn');
+  if (!container) return;
+
+  // 清除舊的（避免重複）
+  container.innerHTML = '';
+
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
-    callback: r=>{
-      idToken=r.credential;
-      localStorage.setItem('ddcc_user_token',idToken);
+    callback: (response) => {
+      idToken = response.credential;
+      localStorage.setItem('ddcc_user_token', idToken);
       showLoading();
       verifyToken(idToken);
-    }
+    },
+    auto_select: false,
+    use_fedcm_for_prompt: true
   });
-  google.accounts.id.renderButton(document.getElementById('signin-btn'),{theme:'outline',size:'large',shape:'pill',width:250});
+
+  // 強制渲染（這行是最關鍵的！）
+  google.accounts.id.renderButton(container, {
+    theme: "outline",
+    size: "large",
+    type: "standard",
+    shape: "rectangular",
+    text: "signin_with",
+    logo_alignment: "left",
+    width: Math.min(container.clientWidth || 300, 300)
+  });
+
+  // 備用方案：如果上面還是不行，就直接顯示 One Tap
+  google.accounts.id.prompt();
 }
 
 async function verifyToken(token){
