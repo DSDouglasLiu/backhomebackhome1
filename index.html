@@ -423,6 +423,61 @@ function showToast(m,e=false){
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2000);
 }
+  /* ============ 補上缺少的關鍵函式（最終版） ============ */
+function initTabs() {
+  const container = document.getElementById('tabsContainer');
+  container.innerHTML = '';
+  SHEET_CONFIGS.forEach(cfg => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn';
+    btn.textContent = cfg.key;
+    btn.dataset.key = cfg.key;
+    btn.onclick = () => switchTab(cfg.key);
+    if (cfg.key === currentSheetKey) btn.classList.add('active');
+    container.appendChild(btn);
+  });
+}
+
+function switchTab(key) {
+  currentSheetKey = key;
+  const cfg = SHEET_CONFIGS.find(s => s.key === key);
+  document.documentElement.style.setProperty('--theme-color', cfg.color);
+
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.key === key);
+  });
+
+  // 讓選中的按鈕自動滾動到視窗中間（手機好用）
+  const activeBtn = document.querySelector(`.tab-btn[data-key="${key}"]`);
+  if (activeBtn) {
+    activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
+
+  loadDashboard(true);
+}
+
+async function doUpdate(cfg, rowIdx, colIdx, value) {
+  showLoading();
+  try {
+    await fetch(API_BASE + '?action=update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        sheet: cfg.sheet,
+        idToken: idToken,
+        writes: [{ row: rowIdx, col: colIdx, value: value }]
+      })
+    });
+    await loadDashboard(true, true); // 靜默更新
+    closeSheet();
+    showToast('更新成功');
+  } catch (e) {
+    console.error(e);
+    showToast('更新失敗', true);
+  } finally {
+    hideLoading();
+  }
+}
 </script>
 </body>
 </html>
