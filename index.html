@@ -326,7 +326,8 @@ const SHEET_CONFIGS = [
       '退場人員已到齊','已 Call 車上遊覽車平台','人已前往平台搭車','車第二次上遊覽車平台','車已離開遊覽車平台'
     ],
     // 特別標註的步驟 (非主要操作)
-    secondarySteps: ['退場人員已到齊','人已前往平台搭車']
+    secondarySteps: ['退場人員已到齊','人已前往平台搭車'],
+    parkingStep: '車暫停位置'
   },
   { 
     key:'地區專車退場（禪堂平台）', 
@@ -337,7 +338,8 @@ const SHEET_CONFIGS = [
       '人已前往禪堂平台搭車','車已離開禪堂平台'
     ],
     // 特別標註的步驟 (非主要操作)
-    secondarySteps: ['人已前往禪堂平台搭車','車已離開禪堂平台']
+    secondarySteps: ['人已前往禪堂平台搭車','車已離開禪堂平台'],
+    parkingStep: '車停靠位置'
   },
   { 
     key:'水陸專車退場', 
@@ -348,7 +350,8 @@ const SHEET_CONFIGS = [
       '退場人員已到齊','已 Call 車上遊覽車平台','車已上遊覽車平台','人從車庫前往平台搭車','車已離開遊覽車平台'
     ],
     // 特別標註的步驟 (非主要操作)
-    secondarySteps: ['退場人員已到齊','人從車庫前往平台搭車']
+    secondarySteps: ['退場人員已到齊','人從車庫前往平台搭車'],
+    parkingStep: '車暫停位置'
   },
   { 
     key:'288法青退場', 
@@ -574,7 +577,9 @@ function renderDashboard(data) {
   }
 
   const { cfg, header, rows } = data;
-  const stopIdx = cfg.steps.indexOf('車暫停位置');
+  // 新版：支援自訂停車欄位名稱
+  const parkingStepName = cfg.parkingStep || '車暫停位置';  // 預設還是舊名稱
+  const stopIdx = cfg.steps.indexOf(parkingStepName);
   const inbound = stopIdx >= 0 ? cfg.steps.slice(0, stopIdx) : cfg.steps;
   const outbound = stopIdx >= 0 ? cfg.steps.slice(stopIdx + 1) : [];
 
@@ -604,7 +609,7 @@ function renderDashboard(data) {
     if (canWrite) {
         const prevStep = stopIdx > 0 ? cfg.steps[stopIdx - 1] : null;
         const prevCol = prevStep ? header.indexOf(prevStep) : -1;
-        const stopCol = header.indexOf('車暫停位置');
+        const stopCol = header.indexOf(parkingStepName);
         
         const eligibleCars = rows.filter(r => {
             const val = stopCol >= 0 ? r.data[stopCol] : '';
@@ -654,7 +659,7 @@ function renderDashboard(data) {
     const scrollBox = document.createElement('div');
     scrollBox.className = 'loc-scroll';
     
-    const col = header.indexOf('車暫停位置');
+    const col = header.indexOf(parkingStepName);
     const counts = {};
     STOP_OPTIONS.forEach(op => counts[op] = 0);
     
@@ -667,7 +672,8 @@ function renderDashboard(data) {
     STOP_OPTIONS.forEach(opt => {
       const card = document.createElement('div');
       card.className = 'loc-card';
-      card.setAttribute('onclick', `openList('${currentSheetKey}', '車暫停位置', 'loc', '${opt}')`);
+      const parkingStepName = cfg.parkingStep || '車暫停位置';
+      card.setAttribute('onclick', `openList('${currentSheetKey}', '${parkingStepName}', 'loc', '${opt}')`);
       card.innerHTML = `<div class="loc-name">${opt}</div><div class="loc-val">${counts[opt]}</div>`;
       scrollBox.appendChild(card);
     });
