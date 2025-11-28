@@ -469,7 +469,7 @@ async function loadDashboard(force = false, silent = false) {
 }
 
 function parseData(values, cfg) {
-  if (!values || values.length === 0) return { header: [], rows: [], cfg };
+  if (!values.length) return { header:[], rows:[], cfg };
 
   let headIdx = -1;
   for (let i = 0; i < Math.min(values.length, 15); i++) {
@@ -479,7 +479,7 @@ function parseData(values, cfg) {
       break;
     }
   }
-  if (headIdx === -1) return { header: [], rows: [], cfg };
+  if (headIdx === -1) return { header:[], rows:[], cfg };
 
   const header = values[headIdx].map(s => String(s).trim());
 
@@ -487,7 +487,7 @@ function parseData(values, cfg) {
   const carIdx = header.findIndex(c => c.includes('車號'));
   if (areaIdx === -1 || carIdx === -1) return { header, rows: [], cfg };
 
-  const seen = new Set();  // 防重複神器
+  const seen = new Set();  // 去重
   const rows = [];
 
   for (let i = headIdx + 1; i < values.length; i++) {
@@ -496,7 +496,7 @@ function parseData(values, cfg) {
     const car = String(row[carIdx] || '').trim();
 
     if (area && car && 
-        !area.includes('區域' && !area.includes('編號') && 
+        !area.includes('區域') && !area.includes('編號') && 
         !car.includes('車號')) {
       const key = `${area}-${car}`;
       if (!seen.has(key)) {
