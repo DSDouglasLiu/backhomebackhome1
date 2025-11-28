@@ -469,27 +469,40 @@ async function loadDashboard(force = false, silent = false) {
 }
 
 function parseData(values, cfg) {
-  if (!values.length) return { header:[], rows:[], cfg };
-  
+  if (!values || values.length === 0) return { header: [], rows: [], cfg };
+
   let headIdx = -1;
-  for (let i = 0; i < Math.min(values.length, 10); i++) {
-    const str = values[i].join(' ').toLowerCase();
-    if (str.includes('車號') || str.includes('編號')) { headIdx = i; break; }
+  for (let i = 0; i < Math.min(values.length, 15); i++) {
+    const rowStr = values[i].join(' ').toLowerCase();
+    if (rowStr.includes('車號') && (rowStr.includes('區域') || rowStr.includes('編號'))) {
+      headIdx = i;
+      break;
+    }
   }
-  if (headIdx === -1) return { header:[], rows:[], cfg };
+  if (headIdx === -1) return { header: [], rows: [], cfg };
 
   const header = values[headIdx].map(s => String(s).trim());
-  
-  let areaIdx = header.findIndex(c => c.includes('區域'));
-  if (areaIdx === -1) { areaIdx = header.findIndex(c => c.includes('編號')); }
-  
-  let carIdx = header.findIndex(c => c.includes('車號'));
-  
+
+  const areaIdx = header.findIndex(c => c.includes('區域') || c.includes('編號'));
+  const carIdx = header.findIndex(c => c.includes('車號'));
+  if (areaIdx === -1 || carIdx === -1) return { header, rows: [], cfg };
+
+  const seen = new Set();  // 防重複神器
   const rows = [];
-  for(let i = headIdx + 1; i < values.length; i++) {
+
+  for (let i = headIdx + 1; i < values.length; i++) {
     const row = values[i];
-    if(row[areaIdx] && row[carIdx]) {
-      rows.push({ data: row, rowIndex: i + 1 });
+    const area = String(row[areaIdx] || '').trim();
+    const car = String(row[carIdx] || '').trim();
+
+    if (area && car && 
+        !area.includes('區域' && !area.includes('編號') && 
+        !car.includes('車號')) {
+      const key = `${area}-${car}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        rows.push({ data: row, rowIndex: i + 1 });
+      }
     }
   }
   return { header, rows, cfg, areaIdx, carIdx };
